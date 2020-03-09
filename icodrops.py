@@ -1,10 +1,7 @@
 import logging
-import multiprocessing
 import re
 import time
-from multiprocessing import Pool
 
-import pandas as pd
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.common.action_chains import ActionChains
@@ -15,38 +12,45 @@ class IcodropsEnded:
     icodrops_ended_url = 'https://icodrops.com/category/ended-ico/'
     not_available = 'not_available'  # used as standard label for not available information
 
-    def __init__(self, init_icodrops_ended_list_path, init_chromedriver_path, debug=False, ico_list=None):
+    def __init__(self, init_icodrops_ended_list_path, init_chromedriver_path, debug=False, ico_list=None,
+                 level='info'):
         """
-        Download the full list of ended icos and remove the one already downloaded if passed in the icolist parameter.
         :param debug:       the debug variable limit the retrieved values to facilitate the debug
-        :param ico_list:    a list of dictionaries or a pandas dataframe containing
-                            the generic information from the ico ended page
         """
-
         self.icodrops_ended_list_path = init_icodrops_ended_list_path
         self.chromedriver_path = init_chromedriver_path
-        self.logger = self.set_logging()
+        self.logger = self.set_logging(level)
+        self.ico_list = ico_list
         if debug:
             self.icodrops_ended_last_ico = 'Wirex'
             self.icodrops_exec_mode = 'ICOs\' subset'
         else:
             self.icodrops_ended_last_ico = 'Infinito'
             self.icodrops_exec_mode = 'all ICOs'
-        if ico_list is None:
-            self.ico_list = self.load_icos()
-            self.logger.debug('Downloaded %d ICOs from %s' % (len(self.ico_list), self.icodrops_ended_url))
+        self.logger.debug('INIT completed')
+
+    def load_icos(self):
+        """
+        Download the full list of ended icos and remove the one already downloaded if passed in the icolist parameter.
+        :param ico_list:    a list of dictionaries or a pandas dataframe containing
+                            the generic information from the ico ended page
+        """
+        logger = self.logger
+        if self.ico_list is None:
+            self.ico_list = self.download_icos()
+            logger.debug('Downloaded %d ICOs from %s' % (len(self.ico_list), self.icodrops_ended_url))
         else:
-            if isinstance(ico_list, pd.DataFrame):
+            if isinstance(self.ico_list, pd.DataFrame):
                 init_df = pd.read_csv(self.icodrops_ended_list_path, header=0)
                 init_df = init_df[['ticker', 'name', 'web_site', 'category_name', 'goal', 'goal_received',
                                    'on_exchanges']]
                 init_list_1 = init_df.to_dict('records')
-                init_list_2 = load_icos()
+                init_list_2 = self.download_icos()
                 self.ico_list = set(init_list_2) - set(init_list_1)
-                self.logger.debug('Loaded %d ICOs from dataframe' % (len(self.ico_list)))
-        self.logger.debug('INIT completed')
+                logger.debug('Loaded %d ICOs from dataframe' % (len(self.ico_list)))
+        logger.info('Load ICOs completed')
 
-    def load_icos(self):
+    def download_icos(self):
         """
         Return a list of dictionaries by retrieving from the icodrops main page and
         the generic information for a given ico.
@@ -74,7 +78,7 @@ class IcodropsEnded:
         soup = BeautifulSoup(r, 'html.parser')
         icos = soup.find_all('div', {'class': 'col-md-12 col-12 a_ico'})
         logger.debug('Retrieved max number of ICOs - {}'.format(len(icos)))
-        icos_list = []
+        self.icos_list = []
         for ico_num, ico in enumerate(icos):
             if ico:
                 try:
@@ -119,7 +123,7 @@ class IcodropsEnded:
                 except Exception as e:
                     logger.debug(e)
                     on_exchanges = self.not_available
-                logger.info('Collected ICO main details for %s' % ticker_full_name)
+                logger.debug('Collected ICO main details for %s' % ticker_full_name)
             else:
                 ticker = ticker_full_name = ico_website = ico_category_name = \
                     goal = goal_received = on_exchanges = self.not_available
@@ -127,7 +131,7 @@ class IcodropsEnded:
             ico_dict_load_ico = {'ticker': ticker, 'name': ticker_full_name, 'web_site': ico_website,
                                  'category_name': ico_category_name, 'goal': goal, 'goal_received': goal_received,
                                  'on_exchanges': on_exchanges}
-            icos_list.append(ico_dict_load_ico)
+            self.icos_list.append(ico_dict_load_ico)
 
         li_end_time = time.time()
         li_hours, li_rem = divmod(li_end_time - li_start_time, 3600)
@@ -136,7 +140,7 @@ class IcodropsEnded:
             self.icodrops_exec_mode) + ' - execution time: {:0>2}:{:0>2}:{:05.2f}'.format(int(li_hours),
                                                                                           int(li_minutes),
                                                                                           li_seconds))
-        return icos_list
+        return self.icos_list
 
     def get_details(self, ico_dict):
         """
@@ -146,6 +150,7 @@ class IcodropsEnded:
 
         ei_start_time = time.time()
         logger = self.logger
+        print(logger)
         format_ico_dict = """ico_dict_load_ico = {'ticker': ticker, 'name': ticker_full_name, 'web_site': ico_website,
                                  'category_name': ico_category_name, 'goal': goal, 'goal_received': goal_received,
                                  'on_exchanges': on_exchanges}"""
@@ -379,41 +384,51 @@ class IcodropsEnded:
                                                                                        int(ei_minutes),
                                                                                        ei_seconds))
 
-        return gd_ico_dict_details
+        return ico_dict
 
-    def set_logging(self):
+    @staticmethod
+    def set_logging(level):
         logger = logging.getLogger(__name__)
-        logger.setLevel(logging.INFO)
+        logger.setLevel(logging.DEBUG) if level == 'debug' else False
+        logger.setLevel(logging.INFO) if level == 'info' else False
+        logger.setLevel(logging.WARNING) if level == 'warning' else False
+        logger.setLevel(logging.ERROR) if level == 'error' else False
         formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(name)s:%(message)s')
         stream_handler = logging.StreamHandler()
         stream_handler.setFormatter(formatter)
         logger.addHandler(stream_handler)
         return logger
 
+    def __repr__(self):
+        return """
+            icodrops = IcodropsEnded(icodrops_ended_list_path, chromedriver_path, debug=True, ico_list=None, 
+            level='info')
+            icodrops.load_icos()
+            data = [icodrops.get_details(ico) for ico in icodrops.ico_list]
+            # ========================== OR ============================================================================
+            icodrops = IcodropsEnded(icodrops_ended_list_path, chromedriver_path, debug=True, ico_list=None, 
+            level=='info')
+            icodrops.load_icos()
+            n_cores = multiprocessing.cpu_count() - 1
+            pool = Pool(n_cores)
+            data = pool.map(icodrops.get_details, icodrops.ico_list)
+            pool.close()
+            pool.join()
+            """
+
 
 if __name__ == '__main__':
-    pd.set_option('display.expand_frame_repr', False)
-    pd.set_option("display.max_rows", 999)
+    # pd.set_option('display.expand_frame_repr', False)
+    # pd.set_option("display.max_rows", 999)
     chromedriver_path = "C:/chromedriver_win32/chromedriver.exe"
     base_path = 'C:/forecasting_winner_icos/'
     icodrops_path = 'C:/forecasting_winner_icos/icodrops/new/'
     icodrops_ended_list_path = icodrops_path + '01_icodrops_ended_list.csv'
     start_time = time.time()
 
-    icodrops = IcodropsEnded(icodrops_ended_list_path, chromedriver_path, debug=True, ico_list=None)
+    icodrops = IcodropsEnded(icodrops_ended_list_path, chromedriver_path, debug=True, ico_list=None, level='info')
+    icodrops.load_icos()
 
-    n_cores = multiprocessing.cpu_count() - 1
-    pool = Pool(n_cores)
-    data = pd.DataFrame(pool.map(icodrops.get_details, icodrops.ico_list))
-    pool.close()
-    pool.join()
-
+    data = [icodrops.get_details(ico) for ico in icodrops.ico_list]
     print(data)
-
-    df = pd.DataFrame(data)
-    df.to_csv(icodrops_ended_list_path, index_label='index')
-
-    end_time = time.time()
-    hours, rem = divmod(end_time - start_time, 3600)
-    minutes, seconds = divmod(rem, 60)
-    print("Execution time: {:0>2}:{:0>2}:{:05.2f}".format(int(hours), int(minutes), seconds))
+    print(icodrops.__repr__())
