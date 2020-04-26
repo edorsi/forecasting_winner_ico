@@ -7,6 +7,7 @@ from selenium import webdriver
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
 
+import pandas as pd
 
 class IcodropsEnded:
     icodrops_ended_url = 'https://icodrops.com/category/ended-ico/'
