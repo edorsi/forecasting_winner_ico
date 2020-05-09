@@ -1,11 +1,73 @@
-import pandas as pd
-import numpy as np
-import time
+import datetime
+import os
 import re
+import time
+import warnings
+from collections import Counter, OrderedDict
+from itertools import cycle
+from itertools import groupby
+from os import listdir
+from os.path import isfile, join
 
+import PyPDF2
+import gensim
+import gensim.corpora as corpora
+from gensim.models import FastText
+import matplotlib.pyplot as plt
+import nltk
+import numpy as np
+import pandas as pd
+from PIL import Image
+from gensim.models import Phrases, CoherenceModel
+from nltk.corpus import sentiwordnet as swn
+from nltk.corpus import stopwords
+from nltk.corpus import wordnet as wn
+from nltk.stem import WordNetLemmatizer
+from nltk.tag import StanfordNERTagger
+from nltk.tokenize import word_tokenize
+from pdf2image import convert_from_path
+from scipy.spatial import distance
+from selenium import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
+from sklearn.cluster import AffinityPropagation
+from sklearn.manifold import TSNE
+
+import pytesseract
+
+
+#no need
+# from statsmodels.formula.api import ols
+# import statsmodels.api as sm
+# from tabulate import tabulate
+# from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+# from sklearn.ensemble import ExtraTreesClassifier, RandomForestClassifier
+# from sklearn.naive_bayes import BernoulliNB, MultinomialNB
+# from sklearn.svm import SVC
+# from sklearn.pipeline import Pipeline, FeatureUnion
+# from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score
+# from sklearn.model_selection import cross_val_score, KFold, StratifiedKFold
+# from sklearn.base import BaseEstimator, TransformerMixin, RegressorMixin
+# from sklearn.preprocessing import MinMaxScaler
+
+
+warnings.filterwarnings(action='ignore', category=UserWarning, module='gensim')
+pd.set_option('display.expand_frame_repr', False)
+pd.set_option("display.max_rows", 999)
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+chromedriver_path = "C:/chromedriver_win32/chromedriver.exe"
+ner_path = r"C:\stanford-ner"
 
 
 def download_whitepaper(icodrops_download_path, icodrops_ended_details_path, verbose=False):
+    def every_downloads_chrome(driver):
+        if not driver.current_url.startswith("chrome://downloads"):
+            driver.get("chrome://downloads/")
+        return driver.execute_script("""
+            var items = downloads.Manager.get().items_;
+            if (items.every(e => e.state === "COMPLETE"))
+                return items.map(e => e.fileUrl || e.file_url);
+            """)
+
     df = pd.read_csv(icodrops_ended_details_path, index_col=0)
     print(df.info()) if verbose else False
     print(df.head(5)) if verbose else False
@@ -149,6 +211,18 @@ def convert_whitepaper(icodrops_ended_checked_path, icodrops_download_path, icod
 
 
 def topic_modeling(icodrops_whitepaper_converted_path, icodrops_topic_path, tech_words, verbose=False):
+    def get_wordnet_pos(treebank_tag):
+        if treebank_tag.startswith('J'):
+            return wn.ADJ
+        elif treebank_tag.startswith('V'):
+            return wn.VERB
+        elif treebank_tag.startswith('N'):
+            return wn.NOUN
+        elif treebank_tag.startswith('R'):
+            return wn.ADV
+        else:
+            return None
+
     def lda_models(corpus, id2word, num_topics):
         print(datetime.datetime.utcnow().strftime('%H:%M:%S') + ' - LDA model %d - # topics' %num_topics) if verbose else False
         model = gensim.models.ldamodel.LdaModel(corpus=corpus,
