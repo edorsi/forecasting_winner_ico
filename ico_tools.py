@@ -1,4 +1,5 @@
 import datetime
+from datetime import timedelta
 import os
 import re
 import time
@@ -56,8 +57,6 @@ pd.set_option("display.max_rows", 999)
 pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 chromedriver_path = r"C:\PythonExtensions\chromedriver_win32\chromedriver.exe"
 ner_path = r"C:\PythonExtensions\stanford-ner"
-
-stop_words = stopwords.words('english')
 
 
 def download_whitepaper(icodrops_download_path, icodrops_ended_details_path, verbose=False):
@@ -8443,6 +8442,15 @@ def ico_date_process(input_csv, output_csv, bitusd_csv, verbose=False):
             q = 4
         return q
 
+    def date_start_adj(element):
+        element = str(element)[0:10]
+        format = '%Y-%m-%d'
+        element = datetime.datetime.strptime(element, format)
+        while element not in bitoin_dates:
+            element = element + timedelta(days=1)
+        return element
+
+
     df = pd.read_csv(input_csv, index_col=0)
     print(df.info()) if verbose else False
     print(df.head(5)) if verbose else False
@@ -8489,8 +8497,13 @@ def ico_date_process(input_csv, output_csv, bitusd_csv, verbose=False):
     print(df_bitcoin.head(5)) if verbose else False
     df_bitcoin['date_start'] = pd.to_datetime(df_bitcoin['date_start'], format='%Y-%m-%d')
 
+    # Adjust start date to find the closest bitcoin date
+    bitoin_dates = df_bitcoin['date_start'].tolist()
+    df['date_start_adj'] = df['date_start'].apply(
+        lambda element: date_start_adj(element) if not pd.isnull(element) else np.nan)
+
     df_final = pd.merge(df, df_bitcoin, how='left',
-                        left_on='date_start', right_on='date_start')
+                        left_on='date_start_adj', right_on='date_start')
 
     df_final.to_csv(output_csv, index_label='index')
     print(df_final.info()) if verbose else False
@@ -8810,3 +8823,52 @@ def aff_prop(input_csv, output_csv, do_plot=True, verbose=False):
         l.set_zorder(20)  # put the legend on top
         plt.show()
 
+
+def columns_cleanup(input_csv, output_csv, verbose=False):
+    df = pd.read_csv(input_csv, index_col=0)
+    print(df.info()) if verbose else False
+    print(df.head(5)) if verbose else False
+    print(datetime.datetime.utcnow().strftime("%H:%M:%S") + ' - Dataframe loaded')
+
+    df['goal_received'] = df['goal_received'].apply(
+        lambda element: re.sub(r'[^0-9]', '', element))
+    df['goal_received'] = df['goal_received'].apply(
+        lambda element: np.nan if element == '' else element)
+
+    df['goal'] = df['goal'].apply(
+        lambda element: re.sub(r'[^0-9]', '', element))
+    df['goal'] = df['goal'].apply(
+        lambda element: np.nan if element == '' else element)
+
+
+    df['whitepaper_name'] = df['whitepaper_name'].apply(
+        lambda element: np.nan if element == 'not_available' else element)
+
+    df = df.drop(columns=['whitepaper_original', 'whitepaper_for_cluster'])
+    l1 = len(df)
+    print("Full dataset: %d" % l1)
+    df = df.dropna(subset=['goal_received'])
+    l2 = len(df)
+    print("Dorp NA goal received dataset: %d - dropper %d" % (l2, l1-l2))
+    df = df.dropna(subset=['goal'])
+    l3 = len(df)
+    print("Dorp NA goal dataset: %d - dropper %d" % (l3, l2-l3))
+    df = df.dropna(subset=['date_start_adj'])
+    l4 = len(df)
+    print("Dorp NA open start dataset: %d - dropper %d" % (l4, l3-l4))
+    df = df.dropna(subset=['whitepaper_name'])
+    l5 = len(df)
+    print("Dorp NA whitepaper name dataset: %d - dropper %d" % (l5, l4-l5))
+    df_zero_cols = df.loc[:, (df == 0).all(axis=0)]
+    zero_cols = []
+    for col in df_zero_cols.columns:
+        zero_cols.append(col)
+    df = df.loc[:, (df != 0).any(axis=0)]
+    print('Removed columns : %s' % ', '.join(zero_cols))
+
+
+    df['goal_pct'] = df['goal_received'].astype(np.float64) / df['goal'].astype(np.float64)
+    df.columns = df.columns.str.replace('-', '_')
+    df = df.reset_index(drop=True)
+
+    df.to_csv(output_csv, index_label='index')

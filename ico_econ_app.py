@@ -1,6 +1,10 @@
 import pandas as pd
 import numpy as np
+from statsmodels.formula.api import ols
 import re
+import os
+
+base_filepath = r'C:\PythonPrjFiles\forecasting_winner_ico'
 
 
 def token_utility(element):
@@ -77,9 +81,9 @@ def country(element):
 
 def goal_received_log(element):
     element = re.sub(r'[^0-9]', '', element)
-    try:
-        element = np.log(element)
-    except:
+    if len(element) > 0:
+        element = np.log(float(element))
+    else:
         element = np.nan
     return element
 
@@ -89,87 +93,99 @@ def ico_econ_app_preparation(input_csv, output_csv, verbose=False):
     print(df.info()) if verbose else False
     print(df.head(5)) if verbose else False
 
-    prefix = 'ea_model_'
+    model_prefix = 'ea_model_'
 
     df_model = pd.DataFrame()
-    df_model[prefix + 'wp_tokens'] = df['tokens_in_sentiment_analysis']
-    df_model[prefix + 'goal_received_log'] = df['goal_received'].apply(
+    df_model[model_prefix + 'wp_tokens'] = df['tokens_in_sentiment_analysis']
+    df_model[model_prefix + 'goal_received_log'] = df['goal_received'].apply(
         lambda element: goal_received_log(element))
 
-    df_model[prefix + 'patent_dummy'] = 0  # No patents recorded in PATSTAT
-    df_model[prefix + 'wp_tech_dummy'] = df['tech_sen_pct'].fillna(0).astype(np.float64)
-    df_model[prefix + 'wp_tech_dummy'] = df_model[prefix + 'wp_tech_dummy'].apply(
+    df_model[model_prefix + 'patent_dummy'] = 0  # No patents recorded in PATSTAT
+    df_model[model_prefix + 'wp_tech_dummy'] = df['tech_sen_pct'].fillna(0).astype(np.float64)
+    df_model[model_prefix + 'wp_tech_dummy'] = df_model[model_prefix + 'wp_tech_dummy'].apply(
         lambda element: 1 if element >= 0.5 else 0)
-    df_model[prefix + 'github_dummy'] = df['github'].apply(lambda element: 0 if element == 'None' else 1)
+    df_model[model_prefix + 'github_dummy'] = df['github'].apply(lambda element: 0 if element == 'None' else 1)
 
-    df_model[prefix + 'tokens_offered_share'] = df['available_for_sale'].apply(
+    df_model[model_prefix + 'tokens_offered_share'] = df['available_for_sale'].apply(
         lambda element: 0 if element == 'None' else element)
-    df_model[prefix + 'tokens_offered_share'] = \
-        df_model[prefix + 'tokens_offered_share'].replace('46 (40 on IEO)%', '46%')
-    df_model[prefix + 'tokens_offered_share'] = \
-        df_model[prefix + 'tokens_offered_share'].replace('45 (1.3 on IEO)%', '45%')
-    df_model[prefix + 'tokens_offered_share'] = \
-        df_model[prefix + 'tokens_offered_share'].replace('4 (Total 35)%', '35%')
-    df_model[prefix + 'tokens_offered_share'] = df_model[prefix + 'tokens_offered_share'].apply(
+    df_model[model_prefix + 'tokens_offered_share'] = \
+        df_model[model_prefix + 'tokens_offered_share'].replace('46 (40 on IEO)%', '46%')
+    df_model[model_prefix + 'tokens_offered_share'] = \
+        df_model[model_prefix + 'tokens_offered_share'].replace('45 (1.3 on IEO)%', '45%')
+    df_model[model_prefix + 'tokens_offered_share'] = \
+        df_model[model_prefix + 'tokens_offered_share'].replace('4 (Total 35)%', '35%')
+    df_model[model_prefix + 'tokens_offered_share'] = df_model[model_prefix + 'tokens_offered_share'].apply(
         lambda element: str(element).replace(',', '.', ))
-    df_model[prefix + 'tokens_offered_share'] = df_model[prefix + 'tokens_offered_share'].apply(
+    df_model[model_prefix + 'tokens_offered_share'] = df_model[model_prefix + 'tokens_offered_share'].apply(
         lambda element: str(element).replace('%', '', ))
-    df_model[prefix + 'tokens_offered_share'] = df_model[prefix + 'tokens_offered_share'].fillna(0).astype(np.float64)
-    df_model[prefix + 'tokens_offered_share'] = df_model[prefix + 'tokens_offered_share'] / 100
+    df_model[model_prefix + 'tokens_offered_share'] = df_model[model_prefix + 'tokens_offered_share'].fillna(0).astype(
+        np.float64)
+    df_model[model_prefix + 'tokens_offered_share'] = df_model[model_prefix + 'tokens_offered_share'] / 100
 
-    df_model[prefix + 'presale_dummy'] = df['presale'].apply(lambda element: 0 if element == 'None' else 1)
-    df_model[prefix + 'duration_in_days'] = df['duration_days']
+    df_model[model_prefix + 'presale_dummy'] = df['presale'].apply(lambda element: 0 if element == 'None' else 1)
+    df_model[model_prefix + 'duration_in_days'] = df['duration_days']
 
-    df_model[prefix + 'token_utility'] = df['topic_words_000'].astype(str) + ', ' \
-                                         + df['topic_words_001'].astype(str) + ', ' \
-                                         + df['topic_words_002'].astype(str) + ', ' \
-                                         + df['topic_words_003'].astype(str) + ', ' \
-                                         + df['topic_words_004'].astype(str) + ', ' \
-                                         + df['topic_words_005'].astype(str) + ', ' \
-                                         + df['topic_words_006'].astype(str) + ', ' \
-                                         + df['topic_words_007'].astype(str) + ', ' \
-                                         + df['topic_words_008'].astype(str) + ', ' \
-                                         + df['topic_words_009'].astype(str)
-    df_model[prefix + 'token_utility'] = df_model[prefix + 'token_utility'].apply(
+    df_model[model_prefix + 'token_utility'] = df['topic_words_000'].astype(str) + ', ' \
+                                               + df['topic_words_001'].astype(str) + ', ' \
+                                               + df['topic_words_002'].astype(str) + ', ' \
+                                               + df['topic_words_003'].astype(str) + ', ' \
+                                               + df['topic_words_004'].astype(str) + ', ' \
+                                               + df['topic_words_005'].astype(str) + ', ' \
+                                               + df['topic_words_006'].astype(str) + ', ' \
+                                               + df['topic_words_007'].astype(str) + ', ' \
+                                               + df['topic_words_008'].astype(str) + ', ' \
+                                               + df['topic_words_009'].astype(str)
+    df_model[model_prefix + 'token_utility'] = df_model[model_prefix + 'token_utility'].apply(
         lambda element: token_utility(element))
 
-    df_model[prefix + 'token_supply_log'] = df['total_tockens'].apply(
+    df_model[model_prefix + 'token_supply_log'] = df['total_tockens'].apply(
         lambda element: 1 if element == 'None' else element)
-    df_model[prefix + 'token_supply_log'] = df_model[prefix + 'token_supply_log'].apply(
+    df_model[model_prefix + 'token_supply_log'] = df_model[model_prefix + 'token_supply_log'].apply(
         lambda element: re.sub(r'[^0-9]', '', str(element)))
-    df_model[prefix + 'token_supply_log'] = df_model[prefix + 'token_supply_log'].fillna(0).astype(np.int64)
-    df_model[prefix + 'token_supply_log'] = np.log(df_model[prefix + 'token_supply_log'])
+    df_model[model_prefix + 'token_supply_log'] = df_model[model_prefix + 'token_supply_log'].fillna(0).astype(np.int64)
+    df_model[model_prefix + 'token_supply_log'] = np.log(df_model[model_prefix + 'token_supply_log'])
 
-    df_model[prefix + 'ETH_based_dummy'] = df['token_type'].apply(
+    df_model[model_prefix + 'ETH_based_dummy'] = df['token_type'].apply(
         lambda element: 1 if element == 'ERC20' else 0)
-    df_model[prefix + 'bitcoin_price_start'] = df['open_start']
-    df_model[prefix + 'time_dummy'] = 'Q' + df['quarter_start'].astype(str) + '-' + df['year_start'].astype(str)
-    df_model[prefix + 'twitter_dummy'] = df['twitter'].apply(
+    df_model[model_prefix + 'bitcoin_price_start'] = df['open_start']
+    df_model[model_prefix + 'time_dummy'] = 'Q' + df['quarter_start'].astype(str) + '-' + df['year_start'].astype(str)
+    df_model[model_prefix + 'twitter_dummy'] = df['twitter'].apply(
         lambda element: 0 if element == 'None' else 1)
-    df_model[prefix + 'wp_team_dummy'] = df['person'].fillna('not available')
-    df_model[prefix + 'wp_team_dummy'] = df_model[prefix + 'wp_team_dummy'].apply(
+    df_model[model_prefix + 'wp_team_dummy'] = df['person'].fillna('not available')
+    df_model[model_prefix + 'wp_team_dummy'] = df_model[model_prefix + 'wp_team_dummy'].apply(
         lambda element: 0 if element == 'not available' or element == '' else 1)
-    df_model[prefix + 'wp_sentence_count'] = df['sentences'].apply(
+    df_model[model_prefix + 'wp_sentence_count'] = df['sentences'].apply(
         lambda element: np.nan if element == 'not available' else element)
-    df_model[prefix + 'location'] = df['location'].apply(
+    df_model[model_prefix + 'location'] = df['location'].apply(
         lambda element: country(element))
-    df_model[prefix + 'sector'] = df['ico_category_name'].apply(
+    df_model[model_prefix + 'sector'] = df['ico_category_name'].apply(
         lambda element: sector(element))
-    df = pd.concat([df, df_model], axis='columns', join='outer', ignore_index=False, sort=False)
 
-    # review
-    df_model[prefix + 'goal_received'] = df['goal_received'].apply(
-        lambda element: re.sub(r'[^0-9]', '', element))
-    df_model[prefix + 'goal_received'] = df_model[prefix + 'goal_received'].apply(
-        lambda element: np.nan if element == '' else element)
-    df_model[prefix + 'goal_received'] = df_model[prefix + 'goal_received'].astype(np.float64)
-    df_model[prefix + 'goal'] = df['goal'].apply(
-        lambda element: re.sub(r'[^0-9]', '', element))
-    df_model[prefix + 'goal'] = df_model[prefix + 'goal'].apply(
-        lambda element: np.nan if element == '' else element)
-    df_model[prefix + 'goal'] = df_model[prefix + 'goal'].astype(np.float64)
-    df_model[prefix + 'goal_pct'] = df_model[prefix + 'goal_received'] / df_model[prefix + 'goal']
+    df = pd.concat([df, df_model], axis='columns', join='outer', ignore_index=False, sort=False)
+    df = pd.concat([df, pd.get_dummies(df[model_prefix + 'time_dummy'], prefix=model_prefix + 'time_dummy')], axis=1)
+    df = pd.concat([df, pd.get_dummies(df[model_prefix + 'location'], prefix=model_prefix + 'location')], axis=1)
+    df = pd.concat([df, pd.get_dummies(df[model_prefix + 'sector'], prefix=model_prefix + 'sector')], axis=1)
+    df.drop([model_prefix + 'time_dummy'], axis=1, inplace=True)
+    df.drop([model_prefix + 'location'], axis=1, inplace=True)
+    df.drop([model_prefix + 'sector'], axis=1, inplace=True)
 
     df.to_csv(output_csv, index_label='index')
+    print('Econometric Model completed')
     print(df_model.info()) if verbose else False
     print(df_model) if verbose else False
+
+
+def ico_eco_app_model(train_df, test_df):
+    model_prefix = 'ea_model_'
+    df_train = train_df.loc[:, train_df.columns.str.startswith(model_prefix)]
+    df_test = test_df.loc[:, train_df.columns.str.startswith(model_prefix)]
+
+    y = model_prefix + 'goal_received_log'
+    x = " + ".join(df_train.columns).replace('-', '_')
+
+    model = ols(y + ' ~ ' + x, df_train).fit()
+    predictions = pd.DataFrame(model.predict(df_test), columns=[model_prefix + 'y_predictions_log'])
+    predictions[model_prefix + 'y_predictions'] = np.exp(predictions[model_prefix + 'y_predictions_log'])
+
+    df_final = pd.concat([df_test, predictions], axis='columns', join='outer', ignore_index=False, sort=False)
+    return df_final

@@ -7,6 +7,8 @@ from ico_tools import w2v
 from ico_tools import aff_prop
 from ico_tools import sentiment
 from ico_econ_app import ico_econ_app_preparation
+from ico_ml_app import ico_ml_app_preparation
+from ico_tools import columns_cleanup
 import os
 
 base_filepath = r'C:\PythonPrjFiles\forecasting_winner_ico'
@@ -22,6 +24,7 @@ def ico_preprocess(
         aff_flag=False,
         sentiment_flag=False,
         econ_app_flag=False,
+        ml_app_flag=False,
 ):
 
     # download_whitepaper(icodrops_download_path, icodrops_ended_details_path)
@@ -74,6 +77,11 @@ def ico_preprocess(
         ico_econ_app_preparation(input_csv=os.sep.join([base_filepath, '34_icodrops_sentiment.csv']),
                                  output_csv=os.sep.join([base_filepath, '35_icodrops_fisch_exp.csv']))
 
+    if ml_app_flag:
+        ico_ml_app_preparation(input_csv=os.sep.join([base_filepath, '35_icodrops_fisch_exp.csv']),
+                               output_csv=os.sep.join([base_filepath, '39a_icodrops_feature_ml.csv']))
+
+
 if __name__ == '__main__':
     ico_preprocess(
         convert_flag=False,
@@ -84,5 +92,11 @@ if __name__ == '__main__':
         w2v_flag=False,
         aff_flag=False,
         sentiment_flag=False,
-        econ_app_flag=True,
+        econ_app_flag=False,
+        ml_app_flag=False,
+    )
+
+    columns_cleanup(
+        input_csv=os.sep.join([base_filepath, '39a_icodrops_feature_ml.csv']),
+        output_csv=os.sep.join([base_filepath, '39_icodrops_feature_ml.csv'])
     )
