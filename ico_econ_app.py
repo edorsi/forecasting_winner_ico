@@ -157,6 +157,7 @@ def ico_econ_app_preparation(input_csv, output_csv, verbose=False):
         lambda element: sector(element))
     df = pd.concat([df, df_model], axis='columns', join='outer', ignore_index=False, sort=False)
 
+    # review
     df_model[prefix + 'goal_received'] = df['goal_received'].apply(
         lambda element: re.sub(r'[^0-9]', '', element))
     df_model[prefix + 'goal_received'] = df_model[prefix + 'goal_received'].apply(
