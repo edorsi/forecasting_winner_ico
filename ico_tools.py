@@ -8825,6 +8825,14 @@ def aff_prop(input_csv, output_csv, do_plot=True, verbose=False):
 
 
 def columns_cleanup(input_csv, output_csv, verbose=False):
+    def goal_received_log(element):
+        element = re.sub(r'[^0-9]', '', element)
+        if len(element) > 0:
+            element = np.log(float(element))
+        else:
+            element = np.nan
+        return element
+
     df = pd.read_csv(input_csv, index_col=0)
     print(df.info()) if verbose else False
     print(df.head(5)) if verbose else False
@@ -8868,6 +8876,8 @@ def columns_cleanup(input_csv, output_csv, verbose=False):
 
 
     df['goal_pct'] = df['goal_received'].astype(np.float64) / df['goal'].astype(np.float64)
+    df['goal_received_log'] = df['goal_received'].apply(
+        lambda element: goal_received_log(element))
     df.columns = df.columns.str.replace('-', '_')
     df = df.reset_index(drop=True)
 

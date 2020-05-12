@@ -1,7 +1,15 @@
 import pandas as pd
 import numpy as np
+import os
 import re
+from sklearn.pipeline import Pipeline, FeatureUnion
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import StandardScaler
+from sklearn.impute import SimpleImputer
+from sklearn.compose import ColumnTransformer
+from sklearn.ensemble import RandomForestClassifier
 
+base_filepath = r'C:\PythonPrjFiles\forecasting_winner_ico'
 
 def ico_ml_app_preparation(input_csv, output_csv, verbose=False):
     df = pd.read_csv(input_csv, index_col=0)
@@ -90,18 +98,18 @@ def ico_ml_app_preparation(input_csv, output_csv, verbose=False):
     }
 
     df.replace(cleanup_nums, inplace=True)
-    df[model_prefix + 'goal_received'] = df['goal_received'].apply(
-        lambda element: re.sub(r'[^0-9]', '', element))
-    df[model_prefix + 'goal_received'] = df[model_prefix + 'goal_received'].apply(
-        lambda element: np.nan if element == '' else element)
-    df[model_prefix + 'goal_received'] = df[model_prefix + 'goal_received'].astype(np.float64)
+    # df[model_prefix + 'goal_received'] = df['goal_received'].apply(
+    #     lambda element: re.sub(r'[^0-9]', '', element))
+    # df[model_prefix + 'goal_received'] = df[model_prefix + 'goal_received'].apply(
+    #     lambda element: np.nan if element == '' else element)
+    # df[model_prefix + 'goal_received'] = df[model_prefix + 'goal_received'].astype(np.float64)
 
     df[model_prefix + 'goal'] = df['goal'].apply(
         lambda element: re.sub(r'[^0-9]', '', element))
     df[model_prefix + 'goal'] = df[model_prefix + 'goal'].apply(
         lambda element: np.nan if element == '' else element)
     df[model_prefix + 'goal'] = df[model_prefix + 'goal'].astype(np.float64)
-    df[model_prefix + 'goal_pct'] = df[model_prefix + 'goal_received'] / df[model_prefix + 'goal']
+    # df[model_prefix + 'goal_pct'] = df[model_prefix + 'goal_received'] / df[model_prefix + 'goal']
 
     df[model_prefix + 'on_exchanges_dummy'] = df['on_exchanges'].apply(
         lambda element: 1 if element != 'Not traded on exchanges' else 0)
@@ -132,30 +140,32 @@ def ico_ml_app_preparation(input_csv, output_csv, verbose=False):
     df[model_prefix + 'bonus_first_dummy'] = df['bonus_first'].apply(
         lambda element: 1 if element != 'None' else 0)
 
-    df[model_prefix + 'ico_category_name'] = df['ico_category_name']
-    df[model_prefix + 'token_type'] = df['token_type']
-    df[model_prefix + 'sentences'] = df['sentences']
-    df[model_prefix + 'coherence_values'] = df['coherence_values']
-    df[model_prefix + 'tech_sen_pct'] = df['tech_sen_pct']
-    df[model_prefix + 'location_num'] = df['location_num']
-    df[model_prefix + 'organization_num'] = df['organization_num']
-    df[model_prefix + 'person_num'] = df['person_num']
-    df[model_prefix + 'duration_days'] = df['duration_days']
-    df[model_prefix + 'open_start'] = df['open_start']
-    df[model_prefix + 'w2v_avg_0'] = df['w2v_avg_0']
-    df[model_prefix + 'w2v_avg_1'] = df['w2v_avg_1']
-    df[model_prefix + 'w2v_avg_2'] = df['w2v_avg_2']
-    df[model_prefix + 'w2v_avg_3'] = df['w2v_avg_3']
-    df[model_prefix + 'w2v_avg_4'] = df['w2v_avg_4']
-    df[model_prefix + 'af_cluster_labels'] = df['af_cluster_labels']
-    df[model_prefix + 'af_cluster_centers_indices'] = df['af_cluster_centers_indices']
-    df[model_prefix + 'tsne_0'] = df['tsne_0']
-    df[model_prefix + 'tsne_1'] = df['tsne_1']
-    df[model_prefix + 'centre_cluster_euclidean_distance'] = df['centre_cluster_euclidean_distance']
-    df[model_prefix + 'tokens_in_sentiment_analysis'] = df['tokens_in_sentiment_analysis']
-    df[model_prefix + 'Avg_obj_score'] = df['Avg_obj_score']
-    df[model_prefix + 'Avg_pos_score'] = df['Avg_pos_score']
-    df[model_prefix + 'Avg_neg_score'] = df['Avg_neg_score']
+    original_fileds = ['ico_category_name',
+                       'token_type',
+                       'sentences',
+                       'coherence_values',
+                       'tech_sen_pct',
+                       'location_num',
+                       'organization_num',
+                       'person_num',
+                       'duration_days',
+                       'open_start',
+                       'af_cluster_labels',
+                       'af_cluster_centers_indices',
+                       'centre_cluster_euclidean_distance',
+                       'tokens_in_sentiment_analysis',
+                       'Avg_obj_score',
+                       'Avg_pos_score',
+                       'Avg_neg_score'
+    ]
+
+    for col in df:
+        if col.startswith('w2v_avg_'):
+            original_fileds.append(col)
+
+    for field in original_fileds:
+        df[model_prefix + str(field)] = df[str(field)]
+
 
 
     df.to_csv(output_csv, index_label='index')
@@ -422,9 +432,56 @@ def testing():
     print('-----------------')
 
 
-def ico_ml_app_model(train_df, test_df):
+def ico_ml_app_model(train_df, test_df, threshold):
     model_prefix = 'ml_model_'
-    df_train = train_df.loc[:, train_df.columns.str.startswith(model_prefix)]
-    df_test = test_df.loc[:, train_df.columns.str.startswith(model_prefix)]
+    y_col = 'goal_pct'
 
-    print(df_train.columns)
+    x_train = train_df.loc[:, train_df.columns.str.startswith(model_prefix)]
+    x_test = test_df.loc[:, test_df.columns.str.startswith(model_prefix)]
+    y_train = train_df[y_col].apply(lambda element: 1 if element >= threshold else 0)
+    y_test = test_df[y_col]
+    # print(y_test)
+    # print(x_train.columns)
+    # print(y_train.columns)
+
+    numeric_col = x_train.select_dtypes(include='number')
+    categorical_col = x_train.select_dtypes(include='object')
+    numeric_features = list(numeric_col)
+    categorical_features = list(categorical_col)
+    # print(numeric_features)
+    # print(categorical_features)
+
+    numeric_transformer = Pipeline([
+        ('fill_na', SimpleImputer(strategy="median")),
+        ('std_scaler', StandardScaler()),
+    ])
+    categorical_transformer = Pipeline([
+        ('fill_na', SimpleImputer(strategy='constant', fill_value='missing')),
+        ("onehot", OneHotEncoder()),
+    ])
+    preprocessor = ColumnTransformer([
+        ('numeric', numeric_transformer, numeric_features),
+        ('categorical', categorical_transformer, categorical_features),
+    ])
+
+    classifier = Pipeline([
+        ('pre-process', preprocessor),
+        ("random forest", RandomForestClassifier(n_estimators=200, criterion='entropy', n_jobs=-1)),
+    ])
+
+    clf = classifier.fit(x_train, y_train)
+    feature_importances = clf[1].feature_importances_
+    names = x_train.columns
+    # for item1, item2 in zip(names, feature_importances):
+    #     print('Importance %s: %.4f' % (item1, item2))
+
+    predictions = pd.DataFrame(clf.predict(x_test), columns=[model_prefix + 'y_predictions'], index=test_df.index)
+
+    df_final = pd.concat([y_test, predictions], axis='columns', join='outer', ignore_index=False, sort=False)
+
+    # Reference to evaluate model predictions
+    df_final[model_prefix + y_col + '_trasformed'] = df_final[y_col].apply(lambda element: 1 if element >= threshold else 0)
+
+
+    # df_final.to_csv(os.sep.join([base_filepath, '01_' + model_prefix + 'Results.csv']))
+    return df_final

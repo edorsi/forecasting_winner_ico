@@ -79,15 +79,6 @@ def country(element):
     return country_flag
 
 
-def goal_received_log(element):
-    element = re.sub(r'[^0-9]', '', element)
-    if len(element) > 0:
-        element = np.log(float(element))
-    else:
-        element = np.nan
-    return element
-
-
 def ico_econ_app_preparation(input_csv, output_csv, verbose=False):
     df = pd.read_csv(input_csv, index_col=0)
     print(df.info()) if verbose else False
@@ -97,8 +88,6 @@ def ico_econ_app_preparation(input_csv, output_csv, verbose=False):
 
     df_model = pd.DataFrame()
     df_model[model_prefix + 'wp_tokens'] = df['tokens_in_sentiment_analysis']
-    df_model[model_prefix + 'goal_received_log'] = df['goal_received'].apply(
-        lambda element: goal_received_log(element))
 
     df_model[model_prefix + 'patent_dummy'] = 0  # No patents recorded in PATSTAT
     df_model[model_prefix + 'wp_tech_dummy'] = df['tech_sen_pct'].fillna(0).astype(np.float64)
@@ -175,17 +164,33 @@ def ico_econ_app_preparation(input_csv, output_csv, verbose=False):
     print(df_model) if verbose else False
 
 
-def ico_eco_app_model(train_df, test_df):
+def ico_eco_app_model(train_df, test_df, threshold):
     model_prefix = 'ea_model_'
-    df_train = train_df.loc[:, train_df.columns.str.startswith(model_prefix)]
-    df_test = test_df.loc[:, train_df.columns.str.startswith(model_prefix)]
+    y_col = 'goal_received_log'
 
-    y = model_prefix + 'goal_received_log'
-    x = " + ".join(df_train.columns).replace('-', '_')
+    x_train = train_df.loc[:, train_df.columns.str.startswith(model_prefix)]
+    x_test = test_df.loc[:, train_df.columns.str.startswith(model_prefix)]
+    y_train = train_df[y_col]
+    y_test = test_df[y_col]
+    full_train = pd.concat([y_train, x_train], axis='columns', join='outer', ignore_index=False, sort=False)
 
-    model = ols(y + ' ~ ' + x, df_train).fit()
-    predictions = pd.DataFrame(model.predict(df_test), columns=[model_prefix + 'y_predictions_log'])
-    predictions[model_prefix + 'y_predictions'] = np.exp(predictions[model_prefix + 'y_predictions_log'])
+    y = 'goal_received_log'
+    x = " + ".join(x_train.columns).replace('-', '_')
+    # print(y)
+    # print(x)
 
-    df_final = pd.concat([df_test, predictions], axis='columns', join='outer', ignore_index=False, sort=False)
+    model = ols(y + ' ~ ' + x, full_train).fit()
+
+    predictions = pd.DataFrame(model.predict(x_test), columns=[model_prefix + 'goal_received_predictions_log'])
+    predictions[model_prefix + 'goal_received_predictions'] = np.exp(predictions[model_prefix + 'goal_received_predictions_log'])
+
+    # Reference to evaluate model predictions
+    predictions[model_prefix + 'goal_pct_trasformed'] = test_df['goal_received'].astype(np.float64) / test_df['goal'].astype(np.float64)
+    predictions[model_prefix + 'goal_pct_trasformed'] = predictions[model_prefix + 'goal_pct_trasformed'].apply(lambda element: 1 if element >= threshold else 0)
+
+    predictions[model_prefix + 'goal_pct_prediction_trasformed'] = predictions[model_prefix + 'goal_received_predictions'].astype(np.float64) / test_df['goal'].astype(np.float64)
+    predictions[model_prefix + 'y_predictions'] = predictions[model_prefix + 'goal_pct_trasformed'].apply(lambda element: 1 if element >= threshold else 0)
+
+    df_final = pd.concat([y_test, predictions], axis='columns', join='outer', ignore_index=False, sort=False)
+    # df_final.to_csv(os.sep.join([base_filepath, '01_' + model_prefix + 'Results.csv']))
     return df_final

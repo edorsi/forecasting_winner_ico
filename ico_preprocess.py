@@ -92,8 +92,8 @@ if __name__ == '__main__':
         w2v_flag=False,
         aff_flag=False,
         sentiment_flag=False,
-        econ_app_flag=False,
-        ml_app_flag=False,
+        econ_app_flag=True,
+        ml_app_flag=True,
     )
 
     columns_cleanup(
