@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from ico_tools import evaluate_model
 from statsmodels.formula.api import ols
 import re
 import os
@@ -189,8 +190,10 @@ def ico_eco_app_model(train_df, test_df, threshold):
     predictions[model_prefix + 'goal_pct_trasformed'] = predictions[model_prefix + 'goal_pct_trasformed'].apply(lambda element: 1 if element >= threshold else 0)
 
     predictions[model_prefix + 'goal_pct_prediction_trasformed'] = predictions[model_prefix + 'goal_received_predictions'].astype(np.float64) / test_df['goal'].astype(np.float64)
-    predictions[model_prefix + 'y_predictions'] = predictions[model_prefix + 'goal_pct_trasformed'].apply(lambda element: 1 if element >= threshold else 0)
+    predictions[model_prefix + 'y_predictions'] = predictions[model_prefix + 'goal_pct_prediction_trasformed'].apply(lambda element: 1 if element >= threshold else 0)
+    predictions = evaluate_model(predictions, model_prefix)
 
     df_final = pd.concat([y_test, predictions], axis='columns', join='outer', ignore_index=False, sort=False)
+
     # df_final.to_csv(os.sep.join([base_filepath, '01_' + model_prefix + 'Results.csv']))
     return df_final

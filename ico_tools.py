@@ -8882,3 +8882,24 @@ def columns_cleanup(input_csv, output_csv, verbose=False):
     df = df.reset_index(drop=True)
 
     df.to_csv(output_csv, index_label='index')
+
+
+def evaluate_model(df_prediction, model_prefix):
+    df_prediction.loc[
+        (df_prediction[model_prefix + 'y_predictions'] == df_prediction[model_prefix + 'goal_pct_trasformed'])
+        & (df_prediction[model_prefix + 'goal_pct_trasformed'] == 1)
+        , model_prefix + 'TP'] = 1
+    df_prediction.loc[
+        (df_prediction[model_prefix + 'y_predictions'] == df_prediction[model_prefix + 'goal_pct_trasformed'])
+        & (df_prediction[model_prefix + 'goal_pct_trasformed'] == 0)
+        , model_prefix + 'TN'] = 1
+    df_prediction.loc[
+        (df_prediction[model_prefix + 'y_predictions'] != df_prediction[model_prefix + 'goal_pct_trasformed'])
+        & (df_prediction[model_prefix + 'goal_pct_trasformed'] == 1)
+        , model_prefix + 'FN'] = 1
+    df_prediction.loc[
+        (df_prediction[model_prefix + 'y_predictions'] != df_prediction[model_prefix + 'goal_pct_trasformed'])
+        & (df_prediction[model_prefix + 'goal_pct_trasformed'] == 0)
+        , model_prefix + 'FP'] = 1
+
+    return df_prediction

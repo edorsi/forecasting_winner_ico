@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 import re
+from ico_tools import evaluate_model
 from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.preprocessing import StandardScaler
@@ -432,7 +433,7 @@ def testing():
     print('-----------------')
 
 
-def ico_ml_app_model(train_df, test_df, threshold):
+def ico_ml_app_model(train_df, test_df, threshold, trees):
     model_prefix = 'ml_model_'
     y_col = 'goal_pct'
 
@@ -466,7 +467,7 @@ def ico_ml_app_model(train_df, test_df, threshold):
 
     classifier = Pipeline([
         ('pre-process', preprocessor),
-        ("random forest", RandomForestClassifier(n_estimators=200, criterion='entropy', n_jobs=-1)),
+        ("random forest", RandomForestClassifier(n_estimators=trees, criterion='entropy', n_jobs=-1)),
     ])
 
     clf = classifier.fit(x_train, y_train)
@@ -481,6 +482,7 @@ def ico_ml_app_model(train_df, test_df, threshold):
 
     # Reference to evaluate model predictions
     df_final[model_prefix + y_col + '_trasformed'] = df_final[y_col].apply(lambda element: 1 if element >= threshold else 0)
+    df_final = evaluate_model(df_final, model_prefix)
 
 
     # df_final.to_csv(os.sep.join([base_filepath, '01_' + model_prefix + 'Results.csv']))
