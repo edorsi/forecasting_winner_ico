@@ -36,21 +36,6 @@ from sklearn.manifold import TSNE
 import pytesseract
 
 
-#no need
-# from statsmodels.formula.api import ols
-# import statsmodels.api as sm
-# from tabulate import tabulate
-# from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
-# from sklearn.ensemble import ExtraTreesClassifier, RandomForestClassifier
-# from sklearn.naive_bayes import BernoulliNB, MultinomialNB
-# from sklearn.svm import SVC
-# from sklearn.pipeline import Pipeline, FeatureUnion
-# from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score
-# from sklearn.model_selection import cross_val_score, KFold, StratifiedKFold
-# from sklearn.base import BaseEstimator, TransformerMixin, RegressorMixin
-# from sklearn.preprocessing import MinMaxScaler
-
-
 warnings.filterwarnings(action='ignore', category=UserWarning, module='gensim')
 pd.set_option('display.expand_frame_repr', False)
 pd.set_option("display.max_rows", 999)
@@ -8701,73 +8686,14 @@ def w2v(input_csv, output_csv, verbose=False):
     print(datetime.datetime.utcnow().strftime("%H:%M:%S") + ' - W2V average model completed')
 
 
-def aff_prop_old(input_csv, output_csv, do_plot=True, verbose=False):
-    df = pd.read_csv(input_csv, index_col=0)
-    print(df.info()) if verbose else False
-    print(df.head(5)) if verbose else False
-    print(datetime.datetime.utcnow().strftime("%H:%M:%S") + ' - Dataframe loaded')
-    w2v_feature_array = df[['w2v_avg_0','w2v_avg_1','w2v_avg_2','w2v_avg_3','w2v_avg_4']].to_numpy()
-    print(w2v_feature_array[0:5])
-    af = AffinityPropagation(affinity='euclidean', damping=0.5, max_iter=1000, convergence_iter=30).fit(w2v_feature_array)
-    df['af_cluster_labels'] = af.labels_
-    print(df['af_cluster_labels'][0:5])
-    cluster_centers_indices = af.cluster_centers_indices_
-
-    n_clusters_ = len(cluster_centers_indices)
-    for i in range(len(df)):
-        print('%d/%d executed' % (i,len(df)))
-        df.loc[i, 'af_cluster_centers_indices'] = cluster_centers_indices[df.loc[i, 'af_cluster_labels']]
-    print(datetime.datetime.utcnow().strftime("%H:%M:%S") + ' - Affinity model completed')
-
-    tsne_model_en_2d = TSNE(perplexity=len(cluster_centers_indices), n_components=2, init='pca', n_iter=3500, random_state=42)
-    tsne = tsne_model_en_2d.fit_transform(w2v_feature_array)
-    tsne_df = pd.DataFrame(tsne)
-    tsne_df = tsne_df.add_prefix('tsne_')
-    df = pd.concat([df, tsne_df], axis='columns', join='outer', ignore_index=False, sort=False)
-    print(datetime.datetime.utcnow().strftime("%H:%M:%S") + ' - t-SNE model completed')
-
-    for i in range(len(df)):
-        centre_0 = df.loc[df.loc[i, 'af_cluster_centers_indices'], 'tsne_0']
-        centre_1 = df.loc[df.loc[i, 'af_cluster_centers_indices'], 'tsne_1']
-        node_0 = df.loc[i, 'tsne_0']
-        node_1 = df.loc[i, 'tsne_1']
-        centre = (centre_0, centre_1)
-        node = (node_0, node_1)
-        df.loc[i, 'centre_cluster_euclidean_distance'] = distance.euclidean(centre, node)
-    print(datetime.datetime.utcnow().strftime("%H:%M:%S") + ' - Euclidean distance completed')
-
-    df.to_csv(output_csv)
-    print(datetime.datetime.utcnow().strftime("%H:%M:%S") + ' - Affinity analysis completed')
-
-    if do_plot:
-        plt.close('all')
-        plt.figure(1)
-        plt.clf()
-        X = tsne
-        colors = cycle('bgrcmykbgrcmykbgrcmykbgrcmyk')
-        for k, col in zip(range(n_clusters_), colors):
-            class_members = af.labels_ == k
-            cluster_center = X[cluster_centers_indices[k]]
-            plt.plot(X[class_members, 0], X[class_members, 1], col + '.')
-            plt.plot(cluster_center[0], cluster_center[1], 'o', markerfacecolor=col, label='Cluster #' + str(k),
-                     markeredgecolor='k', markersize=14)
-            plt.text(cluster_center[0], cluster_center[1], 'Cluster #' + str(k), fontsize=9)
-            for x in X[class_members]:
-                plt.plot([cluster_center[0], x[0]], [cluster_center[1], x[1]], col)
-
-        plt.title('Estimated number of clusters: %d' % n_clusters_)
-        l = plt.legend(loc='upper right')
-        l.set_zorder(20)  # put the legend on top
-        plt.show()
-
-
 def aff_prop(input_csv, output_csv, do_plot=True, verbose=False):
     df = pd.read_csv(input_csv, index_col=0)
     print(df.info()) if verbose else False
     print(df.head(5)) if verbose else False
     print(datetime.datetime.utcnow().strftime("%H:%M:%S") + ' - Dataframe loaded')
-    w2v_feature_array = df[['w2v_avg_0','w2v_avg_1','w2v_avg_2','w2v_avg_3','w2v_avg_4']].to_numpy()
-    print(w2v_feature_array[0:5])
+    # w2v_feature_array = df[['w2v_avg_0','w2v_avg_1','w2v_avg_2','w2v_avg_3','w2v_avg_4']].to_numpy()
+    w2v_feature_array = df.loc[:, df.columns.str.startswith('w2v_avg_')].to_numpy()
+    print(w2v_feature_array[0:5]) if verbose else False
 
     tsne_model_en_2d = TSNE(n_components=2, init='pca', n_iter=3500, random_state=42)
     tsne = tsne_model_en_2d.fit_transform(w2v_feature_array)
@@ -8775,7 +8701,9 @@ def aff_prop(input_csv, output_csv, do_plot=True, verbose=False):
     tsne_df = tsne_df.add_prefix('tsne_')
     df = pd.concat([df, tsne_df], axis='columns', join='outer', ignore_index=False, sort=False)
     print(datetime.datetime.utcnow().strftime("%H:%M:%S") + ' - t-SNE model completed')
-
+    # print(tsne_df)
+    # plt.plot(tsne_df['tsne_0'], tsne_df['tsne_1'], '.')
+    # plt.show()
 
     af = AffinityPropagation(affinity='euclidean', damping=0.5, max_iter=1000, convergence_iter=30).fit(tsne_df.to_numpy())
     df['af_cluster_labels'] = af.labels_

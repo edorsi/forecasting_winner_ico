@@ -90,8 +90,8 @@ if __name__ == '__main__':
         date_flag=False,
         load_flag=False,
         w2v_flag=False,
-        aff_flag=False,
-        sentiment_flag=False,
+        aff_flag=True,
+        sentiment_flag=True,
         econ_app_flag=True,
         ml_app_flag=True,
     )

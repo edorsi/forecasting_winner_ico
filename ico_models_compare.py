@@ -66,12 +66,12 @@ def model_evolution(input_csv, output_csv, debug=True):
 
 
 if __name__ == '__main__':
-    # model_compare(
-    #     input_csv=os.sep.join([base_filepath, '39_icodrops_feature_ml.csv']),
-    #     output_csv=os.sep.join([base_filepath, '00_Results.csv'])
-    # )
-
-    model_evolution(
+    model_compare(
         input_csv=os.sep.join([base_filepath, '39_icodrops_feature_ml.csv']),
-        output_csv=os.sep.join([base_filepath, '00_Evo_Results_200.csv'])
+        output_csv=os.sep.join([base_filepath, '00_Results.csv'])
     )
+
+    # model_evolution(
+    #     input_csv=os.sep.join([base_filepath, '39_icodrops_feature_ml.csv']),
+    #     output_csv=os.sep.join([base_filepath, '00_Evo_Results_200.csv'])
+    # )
