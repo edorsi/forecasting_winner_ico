@@ -9,7 +9,7 @@ from sklearn.model_selection import cross_val_score, KFold, StratifiedKFold
 base_filepath = r'C:\PythonPrjFiles\forecasting_winner_ico'
 
 
-def model_compare(input_csv, output_csv, debug=True):
+def model_compare(input_csv, output_csv, debug=False):
     df = pd.read_csv(input_csv, index_col=0)
 
     thresholds = np.arange(0, 1.05, 0.05).tolist() if not debug else [1]
@@ -19,10 +19,10 @@ def model_compare(input_csv, output_csv, debug=True):
     for k, threshold in enumerate(thresholds):
         y = df['goal_pct'].apply(lambda element: 1 if element >= threshold else 0)
         for i in range(iters):
-            skf = StratifiedKFold(n_splits=10, shuffle=True)
+            skf = StratifiedKFold(n_splits=5, shuffle=True)
             j = 0
             for train_index, test_index in skf.split(df, y):
-                print('Starting threshold %d iteration %d fold %d' % (threshold, i + 1, j + 1))
+                print('Starting threshold %.2f iteration %d fold %d' % (threshold, i + 1, j + 1))
                 df_train = df.iloc[train_index]
                 df_test = df.iloc[test_index]
                 eco_app_model = ico_eco_app_model(df_train, df_test, threshold)

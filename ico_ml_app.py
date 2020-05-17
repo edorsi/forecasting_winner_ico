@@ -55,8 +55,8 @@ def ico_ml_app_preparation(input_csv, output_csv, verbose=False):
     df[model_prefix + 'bonus_first_dummy'] = df['bonus_first'].apply(
         lambda element: 1 if element != 'None' else 0)
 
-    original_fileds = ['ico_category_name',
-                       'token_type',
+    original_fileds = [# 'ico_category_name',
+                       # 'token_type',
                        'sentences',
                        'coherence_values',
                        'tech_sen_pct',
@@ -80,6 +80,9 @@ def ico_ml_app_preparation(input_csv, output_csv, verbose=False):
 
     for field in original_fileds:
         df[model_prefix + str(field)] = df[str(field)]
+
+    df = pd.concat([df, pd.get_dummies(df['ico_category_name'], prefix=model_prefix + 'ico_category_name')], axis=1)
+    df = pd.concat([df, pd.get_dummies(df['token_type'], prefix=model_prefix + 'token_type')], axis=1)
 
     df.to_csv(output_csv, index_label='index')
     print('ML Model completed')
