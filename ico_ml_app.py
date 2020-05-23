@@ -55,23 +55,104 @@ def ico_ml_app_preparation(input_csv, output_csv, verbose=False):
     df[model_prefix + 'bonus_first_dummy'] = df['bonus_first'].apply(
         lambda element: 1 if element != 'None' else 0)
 
-    original_fileds = [# 'ico_category_name',
-                       # 'token_type',
-                       'sentences',
-                       'coherence_values',
-                       'tech_sen_pct',
-                       'location_num',
-                       'organization_num',
-                       'person_num',
-                       'duration_days',
-                       'open_start',
-                       'af_cluster_labels',
-                       'af_cluster_centers_indices',
-                       'centre_cluster_euclidean_distance',
-                       'tokens_in_sentiment_analysis',
-                       'Avg_obj_score',
-                       'Avg_pos_score',
-                       'Avg_neg_score'
+    cleanup_nums = {
+        'ico_category_name': {
+            'Advertising': 1,
+            'Artificial Intelligence': 2,
+            'Banking': 3,
+            'Bets': 4,
+            'Blockchain': 5,
+            'Blockchain Platform': 6,
+            'Blockchain Service': 7,
+            'Business': 8,
+            'Card': 9,
+            'Cloud Computing': 10,
+            'Cloud Storage': 11,
+            'Collaboration': 12,
+            'Crowdfunding': 13,
+            'CryptoFund': 14,
+            'Currency': 15,
+            'Dapp': 16,
+            'Data Service': 17,
+            'E-commerce': 18,
+            'Education': 19,
+            'Energy': 20,
+            'Exchange': 21,
+            'Finance': 22,
+            'Gambling': 23,
+            'Gaming': 24,
+            'Healthcare': 25,
+            'Hi-Tech': 26,
+            'Hybrid Intellingence': 27,
+            'Insurance': 28,
+            'IOT': 29,
+            'Market': 30,
+            'Marketing': 31,
+            'Marketplace': 32,
+            'Masternode': 33,
+            'Media': 34,
+            'Mining': 35,
+            'Mobile': 36,
+            'Network': 37,
+            'Payments': 38,
+            'Protocol': 39,
+            'Real Assets': 40,
+            'Real Business': 41,
+            'Real Estate': 42,
+            'Security': 43,
+            'Smart Contract': 44,
+            'Social': 45,
+            'Social Network': 46,
+            'Ticketing': 47,
+            'Token Discounter': 48,
+            'Trading': 49,
+            'Verification': 50,
+            'VR': 51
+        },
+        'token_type': {
+            'BEP2': 1,
+            'EIP20': 2,
+            'EOS': 3,
+            'ERC20': 4,
+            'ERC223': 5,
+            'ERC23': 6,
+            'ICON': 7,
+            'IRC-20': 8,
+            'NEM Blockchain': 9,
+            'NEO Blockchain': 10,
+            'NEP-5': 11,
+            'None': 12,
+            'NRC20': 13,
+            'OEP-4': 14,
+            'Own wallet': 15,
+            'QRC': 16,
+            'ST-20': 17,
+            'Stellar': 18,
+            'TRC-10': 19,
+            'Waves blockchain': 20,
+            'WRC-20': 21
+        }
+    }
+    df.replace(cleanup_nums, inplace=True)
+
+    original_fileds = [
+        'ico_category_name',
+        'token_type',
+        'sentences',
+        'coherence_values',
+        'tech_sen_pct',
+        'location_num',
+        'organization_num',
+        'person_num',
+        'duration_days',
+        'open_start',
+        'af_cluster_labels',
+        'af_cluster_centers_indices',
+        'centre_cluster_euclidean_distance',
+        'tokens_in_sentiment_analysis',
+        'Avg_obj_score',
+        'Avg_pos_score',
+        'Avg_neg_score'
     ]
 
     for col in df:
@@ -81,14 +162,14 @@ def ico_ml_app_preparation(input_csv, output_csv, verbose=False):
     for field in original_fileds:
         df[model_prefix + str(field)] = df[str(field)]
 
-    df = pd.concat([df, pd.get_dummies(df['ico_category_name'], prefix=model_prefix + 'ico_category_name')], axis=1)
-    df = pd.concat([df, pd.get_dummies(df['token_type'], prefix=model_prefix + 'token_type')], axis=1)
+    # df = pd.concat([df, pd.get_dummies(df['ico_category_name'], prefix=model_prefix + 'ico_category_name')], axis=1)
+    # df = pd.concat([df, pd.get_dummies(df['token_type'], prefix=model_prefix + 'token_type')], axis=1)
 
     df.to_csv(output_csv, index_label='index')
     print('ML Model completed')
 
 
-def ico_ml_app_model(train_df, test_df, threshold, trees):
+def ico_ml_app_model(train_df, test_df, threshold, trees, iter):
     model_prefix = 'ml_model_'
     y_col = 'goal_pct'
 
@@ -113,7 +194,7 @@ def ico_ml_app_model(train_df, test_df, threshold, trees):
     ])
     categorical_transformer = Pipeline([
         ('fill_na', SimpleImputer(strategy='constant', fill_value='missing')),
-        ("onehot", OneHotEncoder()),
+        ('onehot', OneHotEncoder()),
     ])
     preprocessor = ColumnTransformer([
         ('numeric', numeric_transformer, numeric_features),
@@ -128,12 +209,14 @@ def ico_ml_app_model(train_df, test_df, threshold, trees):
     clf = classifier.fit(x_train, y_train)
     feature_importances = clf[1].feature_importances_
     names = x_train.columns
-    # for item1, item2 in zip(names, feature_importances):
-    #     print('Importance %s: %.4f' % (item1, item2))
+    with open(base_filepath + r'\feature_importance.csv', 'a+') as f:
+        for item1, item2 in zip(names, feature_importances):
+            print('Iteration %d - feature - %s - importance %.4f' % (iter, item1, item2), file=f)
 
     predictions = pd.DataFrame(clf.predict(x_test), columns=[model_prefix + 'y_predictions'], index=test_df.index)
 
     df_final = pd.concat([y_test, predictions], axis='columns', join='outer', ignore_index=False, sort=False)
+    # df_ml_features = pd.DataFrame(data=feature_importances, columns=names)
 
     # Reference to evaluate model predictions
     df_final[model_prefix + y_col + '_trasformed'] = df_final[y_col].apply(lambda element: 1 if element >= threshold else 0)

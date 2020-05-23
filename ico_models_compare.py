@@ -13,7 +13,7 @@ def model_compare(input_csv, output_csv, debug=False):
     df = pd.read_csv(input_csv, index_col=0)
 
     thresholds = np.arange(0, 1.05, 0.05).tolist() if not debug else [1]
-    iters = 1 if debug else 15
+    iters = 15
 
     df_csv = pd.DataFrame()
     for k, threshold in enumerate(thresholds):
@@ -26,7 +26,7 @@ def model_compare(input_csv, output_csv, debug=False):
                 df_train = df.iloc[train_index]
                 df_test = df.iloc[test_index]
                 eco_app_model = ico_eco_app_model(df_train, df_test, threshold)
-                ml_app_model = ico_ml_app_model(df_train, df_test, threshold, trees=200)
+                ml_app_model = ico_ml_app_model(df_train, df_test, threshold, trees=200, iter=i)
                 df_final = pd.concat([eco_app_model, ml_app_model], axis='columns', join='outer', ignore_index=False, sort=False)
                 df_final['threshold'] = threshold
                 df_final['iteration'] = i + 1
@@ -52,7 +52,7 @@ def model_evolution(input_csv, output_csv, debug=True):
                 df_train = df.iloc[train_index[0:j]]
                 df_test = df.iloc[test_index]
                 eco_app_model = ico_eco_app_model(df_train, df_test, threshold)
-                ml_app_model = ico_ml_app_model(df_train, df_test, threshold, t)
+                ml_app_model = ico_ml_app_model(df_train, df_test, threshold, trees=200, iter=j)
                 df_final = pd.concat([eco_app_model, ml_app_model], axis='columns', join='outer', ignore_index=False, sort=False)
                 df_final['threshold'] = threshold
                 df_final['training'] = j

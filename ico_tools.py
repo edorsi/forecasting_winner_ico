@@ -8707,15 +8707,13 @@ def aff_prop(input_csv, output_csv, do_plot=True, verbose=False):
 
     af = AffinityPropagation(affinity='euclidean', damping=0.5, max_iter=1000, convergence_iter=30).fit(tsne_df.to_numpy())
     df['af_cluster_labels'] = af.labels_
-    print(df['af_cluster_labels'][0:5])
+    # print(df['af_cluster_labels'][0:5])
     cluster_centers_indices = af.cluster_centers_indices_
 
     n_clusters_ = len(cluster_centers_indices)
     for i in range(len(df)):
         df.loc[i, 'af_cluster_centers_indices'] = cluster_centers_indices[df.loc[i, 'af_cluster_labels']]
     print(datetime.datetime.utcnow().strftime("%H:%M:%S") + ' - Affinity model completed')
-
-
 
     for i in range(len(df)):
         centre_0 = df.loc[df.loc[i, 'af_cluster_centers_indices'], 'tsne_0']

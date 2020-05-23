@@ -64,7 +64,6 @@ def ico_preprocess(
         w2v(input_csv=os.sep.join([base_filepath, '30_icodrops_wp_analysis.csv']),
                  output_csv=os.sep.join([base_filepath, '32a_icodrops_af_analysis.csv']))
 
-
     if aff_flag:
         aff_prop(input_csv=os.sep.join([base_filepath, '32a_icodrops_af_analysis.csv']),
                  output_csv=os.sep.join([base_filepath, '32_icodrops_af_analysis.csv']))
